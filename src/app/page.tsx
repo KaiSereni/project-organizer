@@ -1,103 +1,102 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { auth, googleProvider, getSaveUserProfileCallable } from "./firebase";
+import { signInWithPopup, onAuthStateChanged, signOut, type User } from "firebase/auth";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [user, setUser] = useState<null | { uid: string; displayName: string | null }>(null);
+  const [jsonText, setJsonText] = useState<string>("{\n  \"hello\": \"world\"\n}");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<boolean>(false);
+  const saveFn = useMemo(() => getSaveUserProfileCallable(), []);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u: User | null) => {
+      if (u) {
+        setUser({ uid: u.uid, displayName: u.displayName });
+      } else {
+        setUser(null);
+      }
+    });
+  }, []);
+
+  function validateJson(text: string) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setJsonError("JSON must be an object (dictionary).");
+        return null;
+      }
+      setJsonError(null);
+      return parsed as Record<string, unknown>;
+    } catch (e: any) {
+      setJsonError(e?.message || "Invalid JSON");
+      return null;
+    }
+  }
+
+  async function handleSave() {
+    const parsed = validateJson(jsonText);
+    if (!parsed) return;
+    setSaving(true);
+    try {
+      await saveFn(parsed);
+      alert("Saved");
+    } catch (e: any) {
+      alert(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 flex flex-col gap-6">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Project Organizer</h1>
+        {user ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm opacity-80">{user.displayName || user.uid}</span>
+            <button
+              className="px-3 py-1.5 rounded border hover:bg-black/5 dark:hover:bg-white/10"
+              onClick={() => signOut(auth)}
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <button
+            className="px-3 py-1.5 rounded border hover:bg-black/5 dark:hover:bg-white/10"
+            onClick={() => signInWithPopup(auth, googleProvider)}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Sign in with Google
+          </button>
+        )}
+      </header>
+
+      <section className="flex flex-col gap-3">
+        <label className="text-sm font-medium">Your dictionary (JSON object)</label>
+        <textarea
+          className="font-mono text-sm min-h-64 p-3 rounded border bg-transparent"
+          value={jsonText}
+          onChange={(e) => setJsonText(e.target.value)}
+          onBlur={(e) => validateJson(e.target.value)}
+          spellCheck={false}
+        />
+        {jsonError && <p className="text-sm text-red-600">{jsonError}</p>}
+        <div>
+          <button
+            className="px-4 py-2 rounded bg-black text-white dark:bg-white dark:text-black disabled:opacity-50"
+            onClick={handleSave}
+            disabled={!user || !!jsonError || saving}
           >
-            Read our docs
-          </a>
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        {!user && (
+          <p className="text-sm opacity-70">Sign in to save to your profile.</p>
+        )}
+      </section>
     </div>
   );
 }
