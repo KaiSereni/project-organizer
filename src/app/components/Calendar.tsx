@@ -294,7 +294,7 @@ export default function Calendar() {
           <div className="text-xl font-semibold">Calendar</div>
           {!todayVisible && (
             <button className="px-3 py-1.5 border rounded bg-white text-red-600 flex items-center gap-2 cursor-pointer" onClick={scrollToToday}>
-              <span className={`inline-block ${todayAbove ? 'rotate-180' : ''}`}>↑</span>
+              <span className={`inline-block ${todayAbove ? '' : 'rotate-180'}`}>↑</span>
               Today
             </button>
           )}
