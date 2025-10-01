@@ -29,7 +29,7 @@ def save_user_profile(req: https_fn.CallableRequest) -> Dict[str, Any]:
     db = admin_firestore.client()
     doc_ref = db.collection("users").document(uid)
 
-    profile: Dict[str, Any] = {"username": username, "userdata": data}
+    profile: Dict[str, Any] = {"username": username, "userdata": data, "userId": uid}
     doc_ref.set(profile, merge=True)
 
     return {"ok": True}
