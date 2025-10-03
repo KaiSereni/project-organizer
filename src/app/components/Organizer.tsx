@@ -50,7 +50,7 @@ function useProjects() {
     if (!uid) return;
     const projectsCol = collection(firestore, "users", uid, "projects");
     const q = query(projectsCol, orderBy("completed", "asc"), orderBy("pinned", "desc"), orderBy("order", "asc"), orderBy("createdAt", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       setProjects(
         snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Project, "id">) }))
       );
@@ -96,7 +96,7 @@ function useNotes(projectId: string | null) {
     if (!uid || !projectId) return;
     const notesCol = collection(firestore, "users", uid, "projects", projectId, "notes");
     const q = query(notesCol, orderBy("order", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       setNotes(
         snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Note, "id">) }))
       );

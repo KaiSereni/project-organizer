@@ -38,7 +38,7 @@ function useTasks() {
     if (!uid) return;
     const tasksCol = collection(firestore, "users", uid, "tasks");
     const q = query(tasksCol, orderBy("dueDate", "asc"), orderBy("order", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       setTasks(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Task, "id">) })));
     });
     return unsub;

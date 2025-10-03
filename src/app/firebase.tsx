@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "firebase/functions";
-import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCJvEtqmfMWvDVEGxRTFhIbVX6L5nXykmc",
@@ -17,7 +17,10 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const functions = getFunctions(app);
-export const firestore = getFirestore(app);
+// Enable persistent local cache for offline-first reads and faster cold loads
+export const firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 if (typeof window !== "undefined" && process.env.NODE_ENV == "development") {
   connectFunctionsEmulator(functions, "localhost", 5001);
