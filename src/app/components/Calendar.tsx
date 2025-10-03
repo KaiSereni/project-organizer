@@ -436,12 +436,24 @@ export default function Calendar() {
       <section className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-3">
           <div className="text-xl font-semibold">Calendar</div>
-          {!todayVisible && (
-            <button className="px-3 py-1.5 border rounded bg-white text-red-600 flex items-center gap-2 cursor-pointer" onClick={scrollToToday}>
-              <span className={`inline-block ${todayAbove ? '' : 'rotate-180'}`}>↑</span>
-              Today
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!!selectedId ? (
+              <button
+                className="px-3 py-1.5 border rounded bg-white cursor-pointer"
+                onClick={() => { setSelectedId(null); setSelectedDate(null); }}
+              >
+                Deselect
+              </button>
+            ) : (
+              <div className="h-[38px]"/>
+            )}
+            {!todayVisible && (
+              <button className="px-3 py-1.5 border rounded bg-white text-red-600 flex items-center gap-2 cursor-pointer" onClick={scrollToToday}>
+                <span className={`inline-block ${todayAbove ? '' : 'rotate-180'}`}>↑</span>
+                Today
+              </button>
+            )}
+          </div>
         </div>
         <div id={listId} className="rounded border bg-white shadow-sm max-h-[70vh] overflow-auto divide-y">
           {daysFeed.map((dateStr) => {
