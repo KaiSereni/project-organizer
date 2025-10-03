@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { auth, firestore } from "../firebase";
 import {
   addDoc,
@@ -24,6 +24,9 @@ type Task = {
   order?: number; // per-day ordering
   // Map of YYYY-MM-DD -> completion state for that day (lead-up days)
   dailyCompleted?: Record<string, boolean>;
+  // Weekly repeat
+  repeatWeekly?: boolean;
+  repeatUntil?: string | null; // inclusive YYYY-MM-DD
 };
 
 function useTasks() {
@@ -40,14 +43,30 @@ function useTasks() {
     return unsub;
   }, [uid]);
 
-  const addTask = useCallback(async (title: string, dueDate: string, startDate?: string | null) => {
+  const addTask = useCallback(async (
+    title: string,
+    dueDate: string,
+    startDate?: string | null,
+    repeatWeekly?: boolean,
+    repeatUntil?: string | null
+  ) => {
     if (!uid) return;
     const tasksCol = collection(firestore, "users", uid, "tasks");
     // find next order within the day
     const sameDay = tasks.filter((t) => t.dueDate === dueDate);
     const nextOrder = (sameDay[sameDay.length - 1]?.order ?? -1) + 1;
-    await addDoc(tasksCol, { title, dueDate, startDate: startDate ?? null, completed: false, createdAt: serverTimestamp(), order: nextOrder, dailyCompleted: {} });
-  }, [uid]);
+    await addDoc(tasksCol, {
+      title,
+      dueDate,
+      startDate: startDate ?? null,
+      completed: false,
+      createdAt: serverTimestamp(),
+      order: nextOrder,
+      dailyCompleted: {},
+      repeatWeekly: !!repeatWeekly,
+      repeatUntil: repeatWeekly ? (repeatUntil || null) : null,
+    });
+  }, [uid, tasks]);
 
   const updateTask = useCallback(async (taskId: string, data: Partial<Task>) => {
     if (!uid) return;
@@ -67,12 +86,14 @@ export default function Calendar() {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [startDate, setStartDate] = useState<string>("");
+  const [repeatWeekly, setRepeatWeekly] = useState<boolean>(false);
+  const [repeatUntil, setRepeatUntil] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // Build a feed of days around today
+  // Build a feed of days around today with infinite scroll extension at bottom
   const todayStr = new Date().toISOString().slice(0, 10);
-  const daysFeed = useMemo(() => {
+  const [daysFeed, setDaysFeed] = useState<string[]>(() => {
     const days: string[] = [];
     const start = new Date();
     start.setDate(start.getDate() - 7);
@@ -82,6 +103,23 @@ export default function Calendar() {
       days.push(d.toISOString().slice(0, 10));
     }
     return days;
+  });
+  const isAppendingRef = useRef(false);
+  const appendMoreDays = useCallback((count: number) => {
+    setDaysFeed((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      const base = new Date(last + "T00:00:00");
+      const extra: string[] = [];
+      for (let i = 1; i <= count; i++) {
+        const d = new Date(base);
+        d.setDate(base.getDate() + i);
+        extra.push(d.toISOString().slice(0, 10));
+      }
+      // release guard during state computation to allow future appends
+      isAppendingRef.current = false;
+      return [...prev, ...extra];
+    });
   }, []);
 
   // tasks by day sorted by order then createdAt
@@ -98,9 +136,16 @@ export default function Calendar() {
     return map;
   }, [tasks]);
 
+  const currentYear = new Date().getFullYear();
   function formatDayLabel(dateStr: string) {
     const d = new Date(dateStr + "T00:00:00");
-    const formatter = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const includeYear = d.getFullYear() !== currentYear;
+    const formatter = new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      ...(includeYear ? { year: "numeric" as const } : {}),
+    });
     const label = formatter.format(d);
     if (dateStr === todayStr) return label + " (Today)";
     return label;
@@ -121,9 +166,18 @@ export default function Calendar() {
   }
 
   function colorForDayTasks(dateStr: string): (taskId: string) => { bg: string; border: string } {
-    // Build per-day spanning list to consistently color leadup duplicates
+    // Build per-day list of tasks visible on this day to consistently color occurrences
+    const isRepeatingOnDate = (t: Task, ds: string) => {
+      if (!t.repeatWeekly) return false;
+      if (ds < t.dueDate) return false;
+      if (t.repeatUntil && ds > t.repeatUntil) return false;
+      const dwDue = new Date(t.dueDate + "T00:00:00").getDay();
+      const dwDs = new Date(ds + "T00:00:00").getDay();
+      return dwDue === dwDs;
+    };
+    const isNonRepeatingVisible = (t: Task, ds: string) => ((t.startDate || t.dueDate)! <= ds && ds <= t.dueDate);
     const list = tasks
-      .filter((t) => (t.startDate || t.dueDate)! <= dateStr && dateStr <= t.dueDate)
+      .filter((t) => isRepeatingOnDate(t, dateStr) || (!t.repeatWeekly && isNonRepeatingVisible(t, dateStr)))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || (a.order ?? 0) - (b.order ?? 0));
     const n = Math.max(1, list.length);
     const idToIndex = new Map<string, number>();
@@ -219,11 +273,17 @@ export default function Calendar() {
         }
       });
       setTodayVisible(visible);
+      // Near-bottom detection to append more days
+      const remaining = container.scrollHeight - (container.scrollTop + container.clientHeight);
+      if (remaining < 200 && !isAppendingRef.current) {
+        isAppendingRef.current = true;
+        appendMoreDays(30);
+      }
     };
     handler();
     container.addEventListener('scroll', handler);
     return () => container.removeEventListener('scroll', handler);
-  }, [todayStr]);
+  }, [todayStr, appendMoreDays]);
 
   function scrollToToday() {
     const container = document.getElementById(listId);
@@ -262,7 +322,19 @@ export default function Calendar() {
               <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
-          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={() => { const t = title.trim(); if (t) { void addTask(t, dueDate, startDate || null); setTitle(""); } }}>Add task</button>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={repeatWeekly} onChange={(e) => setRepeatWeekly(e.target.checked)} />
+              Repeat weekly
+            </label>
+            {repeatWeekly && (
+              <div>
+                <label className="text-sm font-medium">Repeat until</label>
+                <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} />
+              </div>
+            )}
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={() => { const t = title.trim(); if (t) { void addTask(t, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setRepeatWeekly(false); setRepeatUntil(""); } }}>Add task</button>
         </div>
 
         {selectedId && (
@@ -274,6 +346,15 @@ export default function Calendar() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <input className="border rounded px-2 py-1" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
                   <input className="border rounded px-2 py-1" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+                </div>
+                <div className="space-y-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!t.repeatWeekly} onChange={(e) => updateTask(t.id, { repeatWeekly: e.target.checked, ...(e.target.checked ? {} : { repeatUntil: null }) })} />
+                    Repeat weekly
+                  </label>
+                  {t.repeatWeekly && (
+                    <input className="border rounded px-2 py-1" type="date" value={t.repeatUntil || ""} onChange={(e) => updateTask(t.id, { repeatUntil: e.target.value || null })} />
+                  )}
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <label className="flex items-center gap-2">
@@ -301,9 +382,18 @@ export default function Calendar() {
         </div>
         <div id={listId} className="rounded border bg-white shadow-sm max-h-[70vh] overflow-auto divide-y">
           {daysFeed.map((dateStr) => {
-            // Spanning list: tasks visible on this day
+            // Build list of tasks that should appear on this date
+            const isRepeatingOnDate = (t: Task) => {
+              if (!t.repeatWeekly) return false;
+              if (dateStr < t.dueDate) return false;
+              if (t.repeatUntil && dateStr > t.repeatUntil) return false;
+              const dwDue = new Date(t.dueDate + "T00:00:00").getDay();
+              const dwDs = new Date(dateStr + "T00:00:00").getDay();
+              return dwDue === dwDs;
+            };
+            const isNonRepeatingVisible = (t: Task) => ((t.startDate || t.dueDate)! <= dateStr && dateStr <= t.dueDate);
             const spanningList = tasks
-              .filter((t) => (t.startDate || t.dueDate)! <= dateStr && dateStr <= t.dueDate)
+              .filter((t) => isRepeatingOnDate(t) || (!t.repeatWeekly && isNonRepeatingVisible(t)))
               .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || (a.order ?? 0) - (b.order ?? 0));
             const colorFor = colorForDayTasks(dateStr);
             return (
@@ -321,29 +411,29 @@ export default function Calendar() {
                 <ul className="flex flex-col gap-2">
                   {spanningList.map((t, idx) => {
                     const c = colorFor(t.id);
-                    // Saturation: n days before due => Max(0, 100 - 10*n)%
+                    // For non-repeating leadups, show de-saturated; for repeating occurrences, full
                     const nDaysBeforeDue = Math.max(0, daysBetween(dateStr, t.dueDate));
-                    const satPercent = Math.max(0, 100 - 10 * nDaysBeforeDue);
+                    const satPercent = t.repeatWeekly ? 100 : Math.max(0, 100 - 10 * nDaysBeforeDue);
                     const baseStyle = { background: c.bg, borderColor: c.border } as React.CSSProperties;
-                    const isDueDay = dateStr === t.dueDate;
-                    const minimized = !isDueDay; // leadup duplicates are un-editable blocks
+                    const isOccurrenceDueDay = (!t.repeatWeekly && dateStr === t.dueDate) || (t.repeatWeekly);
+                    const minimized = !isOccurrenceDueDay; // non-due/leadup duplicates are un-editable blocks
                     const isPast = dateStr < todayStr;
                     const dayChecked = !!t.dailyCompleted?.[dateStr];
                     return (
                       <li key={t.id + ':' + dateStr}
-                          draggable={isDueDay && !t.completed}
-                          onDragStart={isDueDay && !t.completed ? onTaskDragStart(t, idx) : undefined}
+                          draggable={isOccurrenceDueDay && !t.completed && !t.repeatWeekly}
+                          onDragStart={isOccurrenceDueDay && !t.completed && !t.repeatWeekly ? onTaskDragStart(t, idx) : undefined}
                           onDragOver={(e) => e.preventDefault()}
-                          onDrop={isDueDay && !t.completed ? onTaskDropOnItem(dateStr, idx) : undefined}
+                          onDrop={isOccurrenceDueDay && !t.completed && !t.repeatWeekly ? onTaskDropOnItem(dateStr, idx) : undefined}
                           onClick={() => { setSelectedId(t.id); setSelectedDate(dateStr); }}
                           className={`rounded border p-3 flex items-center justify-between ${minimized ? 'opacity-80 cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
-                          style={{ ...baseStyle, filter: `saturate(${(isDueDay ? 100 : satPercent) / 100})` }}>
+                          style={{ ...baseStyle, filter: `saturate(${(isOccurrenceDueDay ? 100 : satPercent) / 100})` }}>
                         <div className="flex items-center gap-3 flex-1">
-                          {isDueDay ? (
+                          {isOccurrenceDueDay && !t.repeatWeekly ? (
                             <input type="checkbox" checked={!!t.completed} onChange={(e) => updateTask(t.id, { completed: e.target.checked })} />
                           ) : (
                             <input
-                              title={isPast ? 'Past day' : 'Mark progress for this day'}
+                              title={isPast ? 'Past day' : 'Mark as done for this occurrence'}
                               type="checkbox"
                               checked={dayChecked}
                               disabled={isPast}
@@ -352,8 +442,11 @@ export default function Calendar() {
                           )}
                           <div className="flex-1">
                             <div className="font-medium">{t.title}</div>
-                            {t.startDate && !isDueDay && (
+                            {t.startDate && !t.repeatWeekly && !isOccurrenceDueDay && (
                               <div className="text-xs opacity-70">{nDaysBeforeDue} day{nDaysBeforeDue === 1 ? "" : "s"} to due date</div>
+                            )}
+                            {t.repeatWeekly && (
+                              <div className="text-xs opacity-70">Repeats weekly{t.repeatUntil ? ` until ${t.repeatUntil}` : ''}</div>
                             )}
                           </div>
                         </div>
@@ -361,6 +454,13 @@ export default function Calendar() {
                           <div className="flex items-center gap-2 text-sm">
                             <input className="border rounded px-2 py-1 bg-white" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
                             <input className="border rounded px-2 py-1 bg-white" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+                            <label className="flex items-center gap-1">
+                              <input type="checkbox" checked={!!t.repeatWeekly} onChange={(e) => updateTask(t.id, { repeatWeekly: e.target.checked, ...(e.target.checked ? {} : { repeatUntil: null }) })} />
+                              Weekly
+                            </label>
+                            {t.repeatWeekly && (
+                              <input className="border rounded px-2 py-1 bg-white" type="date" value={t.repeatUntil || ""} onChange={(e) => updateTask(t.id, { repeatUntil: e.target.value || null })} />
+                            )}
                             <button className="px-2 py-1 border rounded bg-white cursor-pointer" onClick={() => deleteTask(t.id)}>Delete</button>
                           </div>
                         )}
