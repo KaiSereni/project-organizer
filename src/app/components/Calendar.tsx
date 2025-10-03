@@ -17,6 +17,7 @@ import {
 type Task = {
   id: string;
   title: string;
+  notes?: string;
   startDate?: string | null; // YYYY-MM-DD
   dueDate: string; // YYYY-MM-DD
   completed?: boolean;
@@ -57,6 +58,7 @@ function useTasks() {
     const nextOrder = (sameDay[sameDay.length - 1]?.order ?? -1) + 1;
     await addDoc(tasksCol, {
       title,
+      notes: "",
       dueDate,
       startDate: startDate ?? null,
       completed: false,
@@ -343,6 +345,12 @@ export default function Calendar() {
             {tasks.filter((t) => t.id === selectedId).map((t) => (
               <div key={t.id} className="space-y-2">
                 <input className="w-full border rounded px-2 py-1" value={t.title} onChange={(e) => updateTask(t.id, { title: e.target.value })} />
+                <textarea
+                  className="w-full border rounded px-2 py-1 h-24 bg-white"
+                  placeholder="Notes"
+                  value={t.notes || ""}
+                  onChange={(e) => updateTask(t.id, { notes: e.target.value })}
+                />
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <input className="border rounded px-2 py-1" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
                   <input className="border rounded px-2 py-1" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
@@ -454,13 +462,6 @@ export default function Calendar() {
                           <div className="flex items-center gap-2 text-sm">
                             <input className="border rounded px-2 py-1 bg-white" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
                             <input className="border rounded px-2 py-1 bg-white" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
-                            <label className="flex items-center gap-1">
-                              <input type="checkbox" checked={!!t.repeatWeekly} onChange={(e) => updateTask(t.id, { repeatWeekly: e.target.checked, ...(e.target.checked ? {} : { repeatUntil: null }) })} />
-                              Weekly
-                            </label>
-                            {t.repeatWeekly && (
-                              <input className="border rounded px-2 py-1 bg-white" type="date" value={t.repeatUntil || ""} onChange={(e) => updateTask(t.id, { repeatUntil: e.target.value || null })} />
-                            )}
                             <button className="px-2 py-1 border rounded bg-white cursor-pointer" onClick={() => deleteTask(t.id)}>Delete</button>
                           </div>
                         )}
