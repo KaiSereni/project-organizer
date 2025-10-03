@@ -260,6 +260,7 @@ export default function Calendar() {
   const [todayVisible, setTodayVisible] = useState(true);
   const [todayAbove, setTodayAbove] = useState(false);
   const listId = "calendar-feed";
+  const pendingScrollToDateRef = useRef<string | null>(null);
 
   useEffect(() => {
     const container = document.getElementById(listId);
@@ -297,6 +298,41 @@ export default function Calendar() {
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
   }
+
+  const ensureDateInFeed = useCallback((dateStr: string) => {
+    if (daysFeed.length === 0) return;
+    const last = daysFeed[daysFeed.length - 1];
+    // Only support extending into the future (we don't prepend earlier days)
+    if (dateStr > last) {
+      const extraDays = Math.max(0, daysBetween(last, dateStr) + 1);
+      if (extraDays > 0 && !isAppendingRef.current) {
+        isAppendingRef.current = true;
+        appendMoreDays(extraDays);
+      }
+    }
+  }, [daysFeed, appendMoreDays]);
+
+  const tryScrollToDate = useCallback((dateStr: string) => {
+    const container = document.getElementById(listId);
+    if (!container) return false;
+    const el = container.querySelector('[data-day="' + dateStr + '"]') as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return true;
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    const target = pendingScrollToDateRef.current;
+    if (!target) return;
+    // Try scrolling now; if not present yet, make sure feed includes date
+    if (tryScrollToDate(target)) {
+      pendingScrollToDateRef.current = null;
+    } else {
+      ensureDateInFeed(target);
+    }
+  }, [daysFeed, tryScrollToDate, ensureDateInFeed]);
 
   // Per-day completion update helper
   const setDailyCompletion = useCallback(async (taskId: string, dateStr: string, value: boolean) => {
@@ -350,7 +386,7 @@ export default function Calendar() {
               </div>
             )}
           </div>
-          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={() => { const t = title.trim(); if (t) { void addTask(t, notes, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setNotes(""); setRepeatWeekly(false); setRepeatUntil(""); } }}>Add task</button>
+          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={async () => { const t = title.trim(); if (t) { await addTask(t, notes, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setNotes(""); setRepeatWeekly(false); setRepeatUntil(""); pendingScrollToDateRef.current = dueDate; ensureDateInFeed(dueDate); } }}>Add task</button>
         </div>
 
         {selectedId && (
