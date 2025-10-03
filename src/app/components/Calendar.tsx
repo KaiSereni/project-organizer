@@ -46,6 +46,7 @@ function useTasks() {
 
   const addTask = useCallback(async (
     title: string,
+    notes: string,
     dueDate: string,
     startDate?: string | null,
     repeatWeekly?: boolean,
@@ -58,7 +59,7 @@ function useTasks() {
     const nextOrder = (sameDay[sameDay.length - 1]?.order ?? -1) + 1;
     await addDoc(tasksCol, {
       title,
-      notes: "",
+      notes: notes ?? "",
       dueDate,
       startDate: startDate ?? null,
       completed: false,
@@ -86,6 +87,7 @@ function useTasks() {
 export default function Calendar() {
   const { tasks, addTask, updateTask, deleteTask } = useTasks();
   const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState<string>("");
   const [dueDate, setDueDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [startDate, setStartDate] = useState<string>("");
   const [repeatWeekly, setRepeatWeekly] = useState<boolean>(false);
@@ -307,12 +309,24 @@ export default function Calendar() {
   return (
     <div className="max-w-6xl mx-auto p-6 flex gap-6">
       {/* Sidebar: Create/Edit Task */}
-      <aside className="w-full max-w-sm shrink-0 self-start sticky top-4 h-fit rounded border p-4 bg-white shadow-sm">
+      <aside
+        className="w-full max-w-sm shrink-0 self-start sticky top-4 h-fit rounded border p-4 bg-white shadow-sm"
+        onFocusCapture={() => { if (selectedId) { setSelectedId(null); setSelectedDate(null); } }}
+      >
         <div className="text-lg font-semibold mb-3">Tasks</div>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium">Title</label>
             <input className="mt-1 w-full border rounded px-2 py-1 bg-white" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Notes</label>
+            <textarea
+              className="mt-1 w-full border rounded px-2 py-1 h-24 bg-white"
+              placeholder="Optional notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -336,7 +350,7 @@ export default function Calendar() {
               </div>
             )}
           </div>
-          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={() => { const t = title.trim(); if (t) { void addTask(t, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setRepeatWeekly(false); setRepeatUntil(""); } }}>Add task</button>
+          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={() => { const t = title.trim(); if (t) { void addTask(t, notes, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setNotes(""); setRepeatWeekly(false); setRepeatUntil(""); } }}>Add task</button>
         </div>
 
         {selectedId && (
