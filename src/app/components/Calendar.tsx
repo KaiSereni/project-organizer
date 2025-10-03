@@ -351,80 +351,85 @@ export default function Calendar() {
       >
         <div className="text-lg font-semibold mb-3">Tasks</div>
         <div className="space-y-3">
-          <div>
-            <label className="text-sm font-medium">Title</label>
-            <input className="mt-1 w-full border rounded px-2 py-1 bg-white" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Notes</label>
-            <textarea
-              className="mt-1 w-full border rounded px-2 py-1 h-24 bg-white"
-              placeholder="Optional notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium">Start date</label>
-              <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Due date</label>
-              <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={repeatWeekly} onChange={(e) => setRepeatWeekly(e.target.checked)} />
-              Repeat weekly
-            </label>
-            {repeatWeekly && (
+          {!selectedId ? (
+            <>
               <div>
-                <label className="text-sm font-medium">Repeat until</label>
-                <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} />
+                <label className="text-sm font-medium">Title</label>
+                <input className="mt-1 w-full border rounded px-2 py-1 bg-white" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
-            )}
-          </div>
-          <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={async () => { const t = title.trim(); if (t) { await addTask(t, notes, dueDate, startDate || null, repeatWeekly, repeatUntil || null); setTitle(""); setNotes(""); setRepeatWeekly(false); setRepeatUntil(""); pendingScrollToDateRef.current = dueDate; ensureDateInFeed(dueDate); } }}>Add task</button>
-        </div>
-
-        {selectedId && (
-          <div className="mt-6 pt-4 border-t">
-            <div className="text-sm font-medium mb-2">Selected task</div>
-            {tasks.filter((t) => t.id === selectedId).map((t) => (
-              <div key={t.id} className="space-y-2">
-                <input className="w-full border rounded px-2 py-1" value={t.title} onChange={(e) => updateTask(t.id, { title: e.target.value })} />
+              <div>
+                <label className="text-sm font-medium">Notes</label>
                 <textarea
-                  className="w-full border rounded px-2 py-1 h-24 bg-white"
-                  placeholder="Notes"
-                  value={t.notes || ""}
-                  onChange={(e) => updateTask(t.id, { notes: e.target.value })}
+                  className="mt-1 w-full border rounded px-2 py-1 h-24 bg-white"
+                  placeholder="Optional notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                 />
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <input className="border rounded px-2 py-1" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
-                  <input className="border rounded px-2 py-1" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Start date</label>
+                  <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={startDate} onChange={(e) => {
+                    const val = e.target.value;
+                    setStartDate(val);
+                    if (val) { setRepeatWeekly(false); setRepeatUntil(""); }
+                  }} />
                 </div>
-                <div className="space-y-2 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={!!t.repeatWeekly} onChange={(e) => updateTask(t.id, { repeatWeekly: e.target.checked, ...(e.target.checked ? {} : { repeatUntil: null }) })} />
-                    Repeat weekly
-                  </label>
-                  {t.repeatWeekly && (
-                    <input className="border rounded px-2 py-1" type="date" value={t.repeatUntil || ""} onChange={(e) => updateTask(t.id, { repeatUntil: e.target.value || null })} />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={!!t.completed} onChange={(e) => updateTask(t.id, { completed: e.target.checked })} />
-                    Completed
-                  </label>
-                  <button className="px-2 py-1 border rounded cursor-pointer" onClick={() => deleteTask(t.id)}>Delete</button>
+                <div>
+                  <label className="text-sm font-medium">Due date</label>
+                  <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={!!repeatWeekly && !startDate} disabled={!!startDate} onChange={(e) => { if (!startDate) setRepeatWeekly(e.target.checked); }} />
+                  Repeat weekly
+                </label>
+                {repeatWeekly && !startDate && (
+                  <div>
+                    <label className="text-sm font-medium">Repeat until</label>
+                    <input className="mt-1 w-full border rounded px-2 py-1 bg-white" type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} />
+                  </div>
+                )}
+              </div>
+              <button className="w-full px-3 py-2 rounded bg-black text-white cursor-pointer" onClick={async () => { const t = title.trim(); if (t) { await addTask(t, notes, dueDate, startDate || null, repeatWeekly && !startDate, repeatWeekly && !startDate ? (repeatUntil || null) : null); setTitle(""); setNotes(""); setRepeatWeekly(false); setRepeatUntil(""); pendingScrollToDateRef.current = dueDate; ensureDateInFeed(dueDate); } }}>Add task</button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-sm font-medium">Selected task</div>
+              {tasks.filter((t) => t.id === selectedId).map((t) => (
+                <div key={t.id} className="space-y-2">
+                  <input className="w-full border rounded px-2 py-1" value={t.title} onChange={(e) => updateTask(t.id, { title: e.target.value })} />
+                  <textarea
+                    className="w-full border rounded px-2 py-1 h-24 bg-white"
+                    placeholder="Notes"
+                    value={t.notes || ""}
+                    onChange={(e) => updateTask(t.id, { notes: e.target.value })}
+                  />
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <input className="border rounded px-2 py-1" type="date" value={t.startDate || ""} onChange={(e) => {
+                      const val = e.target.value;
+                      updateTask(t.id, { startDate: val || null, ...(val ? { repeatWeekly: false, repeatUntil: null } : {}) });
+                    }} />
+                    <input className="border rounded px-2 py-1" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!t.repeatWeekly && !t.startDate} disabled={!!t.startDate} onChange={(e) => { if (!t.startDate) { updateTask(t.id, { repeatWeekly: e.target.checked, ...(e.target.checked ? {} : { repeatUntil: null }) }); } }} />
+                      Repeat weekly
+                    </label>
+                    {!!t.repeatWeekly && !t.startDate && (
+                      <input className="border rounded px-2 py-1" type="date" value={t.repeatUntil || ""} onChange={(e) => updateTask(t.id, { repeatUntil: e.target.value || null })} />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-end text-sm">
+                    <button className="px-2 py-1 border rounded cursor-pointer" onClick={() => deleteTask(t.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Calendar feed */}
@@ -484,7 +489,7 @@ export default function Calendar() {
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={isOccurrenceDueDay && !t.completed && !t.repeatWeekly ? onTaskDropOnItem(dateStr, idx) : undefined}
                           onClick={() => { setSelectedId(t.id); setSelectedDate(dateStr); }}
-                          className={`rounded border p-3 flex items-center justify-between ${minimized ? 'opacity-80 cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+                          className={`rounded border p-3 flex items-center justify-between ${minimized ? 'opacity-80' : ''} cursor-pointer transition hover:shadow-sm hover:border-black/30`}
                           style={{ ...baseStyle, filter: `saturate(${(isOccurrenceDueDay ? 100 : satPercent) / 100})` }}>
                         <div className="flex items-center gap-3 flex-1">
                           {isOccurrenceDueDay && !t.repeatWeekly ? (
@@ -510,8 +515,12 @@ export default function Calendar() {
                         </div>
                         {!minimized && (
                           <div className="flex items-center gap-2 text-sm">
-                            <input className="border rounded px-2 py-1 bg-white" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
-                            <input className="border rounded px-2 py-1 bg-white" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+                            {!t.repeatWeekly && (
+                              <>
+                                <input className="border rounded px-2 py-1 bg-white" type="date" value={t.startDate || ""} onChange={(e) => updateTask(t.id, { startDate: e.target.value || null })} />
+                                <input className="border rounded px-2 py-1 bg-white" type="date" value={t.dueDate} onChange={(e) => updateTask(t.id, { dueDate: e.target.value })} />
+                              </>
+                            )}
                             <button className="px-2 py-1 border rounded bg-white cursor-pointer" onClick={() => deleteTask(t.id)}>Delete</button>
                           </div>
                         )}
