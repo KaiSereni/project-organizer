@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AuthGate from "./components/AuthGate";
 import Organizer from "./components/Organizer";
@@ -26,23 +27,7 @@ function Tabs({ active, onChange }: { active: "organizer" | "calendar"; onChange
   );
 }
 
-function OrganizerPlaceholder() {
-  return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="opacity-70">Organizer coming next: projects grid, notes preview, drag & drop…</div>
-    </div>
-  );
-}
-
-function CalendarPlaceholder() {
-  return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="opacity-70">Calendar coming next: tasks with due/start dates…</div>
-    </div>
-  );
-}
-
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -85,5 +70,13 @@ export default function Home() {
       <Tabs active={tab} onChange={handleChange} />
       {tab === "organizer" ? <Organizer /> : <Calendar />}
     </AuthGate>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="max-w-5xl mx-auto p-6 opacity-70">Loading…</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
