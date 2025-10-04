@@ -8,3 +8,5 @@ They use this awful assignment center app that none of the professors know how t
 Anyway.<br>
 Every weekend I open up 11 tabs (yes, exactly 11 tabs. I counted. I'm very good at counting), throw all my assignments into the calendar section of this website, plan out when I'm going to start and finish them, and then I don't have to worry about it for the rest of the week.<br>
 Unrelated, I also start a lot of projects that I never get finished, yet somehow I never know what to work on. For example, I started this project because I was procrastonating another personal project, which I started because I was procrastonating homework, which I was working on while I'm at work. Anyway, I just needed this website, and if anyone else has the same special brand of whatever disorder makes me like this, then you're welcome.
+
+<img width="1445" height="637" alt="Screenshot 2025-10-03 at 11 36 07 PM" src="https://github.com/user-attachments/assets/7a17175f-6c1b-4a72-9e89-ac4a5f70bc19" />
