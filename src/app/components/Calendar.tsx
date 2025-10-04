@@ -508,10 +508,9 @@ export default function Calendar() {
                             <input type="checkbox" checked={!!t.completed} onChange={(e) => updateTask(t.id, { completed: e.target.checked })} />
                           ) : (
                             <input
-                              title={isPast ? 'Past day' : 'Mark as done for this occurrence'}
+                              title="Mark as done for this occurrence"
                               type="checkbox"
                               checked={dayChecked}
-                              disabled={isPast}
                               onChange={(e) => setDailyCompletion(t.id, dateStr, e.target.checked)}
                             />
                           )}
