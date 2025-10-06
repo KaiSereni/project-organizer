@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { auth, googleProvider } from "../firebase";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import { FaGithub } from "react-icons/fa";
+import { redirect } from "next/navigation";
 
 type AuthGateProps = {
   children: React.ReactNode;
@@ -52,7 +54,13 @@ export default function AuthGate({ children }: AuthGateProps) {
     <div className="min-h-dvh flex flex-col">
       <header className="w-full border-b">
         <div className="max-w-5xl mx-auto p-4 flex items-center justify-between">
-          <div className="font-medium">Project Organizer</div>
+          
+          <div className="font-medium flex space-x-4 items-center">
+            <FaGithub size={25} className="cursor-pointer hover:scale-105 duration-100" onClick={() => {
+              window.open("https://github.com/KaiSereni/project-organizer", "_blank")
+            }}/>
+            <span>Project Organizer</span>
+          </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="opacity-80">{user.displayName || user.uid}</span>
             <button
