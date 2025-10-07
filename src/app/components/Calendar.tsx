@@ -347,7 +347,7 @@ export default function Calendar() {
       {/* Sidebar: Create/Edit Task */}
       <aside
         className="w-full max-w-sm shrink-0 self-start sticky top-4 h-fit rounded border p-4 bg-white shadow-sm"
-        onFocusCapture={() => { if (selectedId) { setSelectedId(null); setSelectedDate(null); } }}
+        // onFocusCapture={() => { if (selectedId) { setSelectedId(null); setSelectedDate(null); } }}
       >
         <div className="text-lg font-semibold mb-3">Tasks</div>
         <div className="space-y-3">

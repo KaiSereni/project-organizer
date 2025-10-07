@@ -1,1 +1,0 @@
-find . \( -path './node_modules' -o -path './.git' -o -path './functions/venv'  -o -path './.next' \) -prune -o -print
