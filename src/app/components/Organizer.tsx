@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiMapPin, FiEdit2, FiTrash2, FiCheckCircle, FiRotateCcw } from "react-icons/fi";
+import { FiMapPin, FiEdit2, FiTrash2, FiCheckCircle, FiRotateCcw, FiMoreVertical } from "react-icons/fi";
 import { auth, firestore } from "../firebase";
 import {
   addDoc,
@@ -169,6 +169,21 @@ function ProjectCard({ project, onOpen, onRename, onDelete, onPinToggle, onCompl
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuRef]);
+
   const remainingMs = project.completed && project.pinned
     ? Math.max(0, ((project.completedAt ?? 0) + (project.returnIntervalMs ?? (3 * 24 * 60 * 60 * 1000)) - nowMs))
     : 0;
@@ -205,12 +220,7 @@ function ProjectCard({ project, onOpen, onRename, onDelete, onPinToggle, onCompl
       </div>
       {/* Action buttons pinned to bottom */}
       <div className="mt-auto flex items-center justify-end gap-2 text-sm">
-        <button aria-label={project.pinned ? "Unpin project" : "Pin project"} title={project.pinned ? "Unpin" : "Pin"} className="p-2 border rounded cursor-pointer inline-flex items-center justify-center" onClick={onPinToggle}>
-          <PiPushPin color={project.pinned ? 'red' : 'black'} />
-        </button>
-        <button aria-label={project.completed ? "Recover project" : "Complete project"} title={project.completed ? "Recover" : "Complete"} className="p-2 border rounded cursor-pointer inline-flex items-center justify-center" onClick={onCompleteToggle}>
-          {project.completed ? <FiRotateCcw /> : <FiCheckCircle />}
-        </button>
+        <button className="px-2 py-1 border rounded cursor-pointer" onClick={onOpen}>Open</button>
         {project.completed && project.pinned && (
           <select
             className="px-2 py-1 border rounded cursor-pointer"
@@ -224,13 +234,37 @@ function ProjectCard({ project, onOpen, onRename, onDelete, onPinToggle, onCompl
             <option value={String(14 * 24 * 60 * 60 * 1000)}>14 days</option>
           </select>
         )}
-        <button aria-label="Rename project" title="Rename" className="p-2 border rounded cursor-pointer inline-flex items-center justify-center" onClick={() => setEditing(true)}>
-          <FiEdit2 />
-        </button>
-        <button aria-label="Delete project" title="Delete" className="p-2 border rounded cursor-pointer inline-flex items-center justify-center" onClick={onDelete}>
-          <FiTrash2 />
-        </button>
-        <button className="px-2 py-1 border rounded cursor-pointer" onClick={onOpen}>Open</button>
+        <div className="relative">
+          <button
+            title="More actions"
+            aria-label="More actions"
+            className="p-2 border rounded cursor-pointer inline-flex items-center justify-center"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <FiMoreVertical />
+          </button>
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              className="absolute right-0 bottom-full mb-2 w-40 bg-white dark:bg-black border rounded shadow-lg z-10"
+            >
+              <ul className="divide-y dark:divide-gray-700">
+                <li><button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2" onClick={() => { onPinToggle(); setMenuOpen(false); }}>
+                  <PiPushPin color={project.pinned ? 'red' : 'currentColor'} /> {project.pinned ? "Unpin" : "Pin"}
+                </button></li>
+                <li><button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2" onClick={() => { onCompleteToggle(); setMenuOpen(false); }}>
+                  {project.completed ? <FiRotateCcw /> : <FiCheckCircle />} {project.completed ? "Recover" : "Complete"}
+                </button></li>
+                <li><button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2" onClick={() => { setEditing(true); setMenuOpen(false); }}>
+                  <FiEdit2 /> Rename
+                </button></li>
+                <li><button className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2" onClick={() => { onDelete(); setMenuOpen(false); }}>
+                  <FiTrash2 /> Delete
+                </button></li>
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -240,6 +274,20 @@ function NotesList({ projectId, onClose }: { projectId: string; onClose: () => v
   const { notes, addNote, updateNote, deleteNote, reorderNotes } = useNotes(projectId);
   const [newTitle, setNewTitle] = useState("");
   const dragIndexRef = useRef<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuRef]);
 
   const visibleNotes = useMemo(() => {
     const now = Date.now();
@@ -286,9 +334,34 @@ function NotesList({ projectId, onClose }: { projectId: string; onClose: () => v
             <div className="flex items-center justify-between gap-2">
               <input className="font-medium bg-transparent flex-1 outline-none" value={n.title} onChange={(e) => updateNote(n.id, { title: e.target.value })} />
               <div className="flex items-center gap-2 text-sm">
-                <button className="px-2 py-1 border rounded cursor-pointer" onClick={() => updateNote(n.id, { pinned: !n.pinned, lastPinnedAt: Date.now() })}>{n.pinned ? "Unpin" : "Pin"}</button>
-                <button className="px-2 py-1 border rounded cursor-pointer" onClick={() => updateNote(n.id, { completed: true })}>Complete</button>
-                <button className="px-2 py-1 border rounded cursor-pointer" onClick={() => deleteNote(n.id)}>Delete</button>
+                <div className="relative">
+                  <button
+                    title="More actions"
+                    aria-label="More actions"
+                    className="p-2 -m-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => setOpenMenuId(openMenuId === n.id ? null : n.id)}
+                  >
+                    <FiMoreVertical />
+                  </button>
+                  {openMenuId === n.id && (
+                    <div
+                      ref={menuRef}
+                      className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-black border rounded shadow-lg z-10"
+                    >
+                      <ul className="divide-y dark:divide-gray-700">
+                        <li><button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2" onClick={() => { updateNote(n.id, { pinned: !n.pinned, lastPinnedAt: Date.now() }); setOpenMenuId(null); }}>
+                          <PiPushPin color={n.pinned ? 'red' : 'currentColor'} /> {n.pinned ? "Unpin" : "Pin"}
+                        </button></li>
+                        <li><button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2" onClick={() => { updateNote(n.id, { completed: true }); setOpenMenuId(null); }}>
+                          <FiCheckCircle /> Complete
+                        </button></li>
+                        <li><button className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2" onClick={() => { deleteNote(n.id); setOpenMenuId(null); }}>
+                          <FiTrash2 /> Delete
+                        </button></li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <textarea className="mt-2 w-full min-h-24 bg-transparent border rounded p-2 text-sm" value={n.content} onChange={(e) => updateNote(n.id, { content: e.target.value })} />

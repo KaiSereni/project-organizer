@@ -12,6 +12,7 @@
   "dependencies": {
     "@firebase/app-compat": "^0.5.3",
     "firebase": "^12.3.0",
+    "firebase-admin": "^13.5.0",
     "next": "15.2.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -22,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "firebase-tools": "^14.19.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
